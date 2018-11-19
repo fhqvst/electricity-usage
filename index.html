@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script type="text/javascript" src="big.js"></script>
+    <script type="text/javascript" src="ssci.js"></script>
+    <script
+      type="text/javascript"
+      src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.js"
+    ></script>
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto+400,600"
+      rel="stylesheet"
+    />
+    <style type="text/css">
+      body {
+        background: #182026;
+        color: #eeeeee;
+        font-family: "Roboto", sans-serif;
+        padding: 20px;
+        line-height: 1.5;
+      }
+      a {
+        transition: 0.1s;
+        color: #137cbd;
+        text-decoration: none;
+        display: inline-block;
+        border-bottom: 1px solid #137cbd;
+      }
+      a:hover {
+        color: #248dce;
+        border-color: #248dce;
+      }
+      strong {
+        font-weight: 600;
+      }
+      h1,
+      p {
+        max-width: 600px;
+      }
+      h1 {
+        margin: auto;
+      }
+      p {
+        margin: 80px auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="max-width: 800px; margin: 0 auto">
+      <h1>Electricity usage forecasting</h1>
+      <p style="font-size: 1.2em; margin: 10px auto">
+        Exploring time series using javascript. Data sourced via
+        <a
+          target="_blank"
+          href="https://www.scb.se/hitta-statistik/statistik-efter-amne/energi/"
+        >
+          SCB</a
+        >.
+      </p>
+      <p>
+        The data consists of monthly measurements of electricity usage for
+        Sweden and has been collected from 1990 through 2018. The data shows a
+        weak positive trend and clear cyclical seasonality throughout each year.
+      </p>
+      <canvas id="chart1" width="800" height="400"></canvas>
+
+      <p>
+        We can <strong>deseasonalize</strong> the data by calculating monthly
+        averages and removing the averages from the data. We are left with the
+        following plot.
+      </p>
+      <canvas id="chart2" width="800" height="400"></canvas>
+
+      <p>
+        Having decomposed the data into cyclical trends and noise we can now
+        continue by removing the drift. This is easiest done by using an
+        exponential moving average.
+      </p>
+
+      <canvas id="chart3" width="800" height="400"></canvas>
+
+      <p>
+        It seems that our time series data is now stationary, and so finally, we
+        can utilize <strong>exponential smoothing</strong> to make forecasts
+        based on it.
+      </p>
+
+      <canvas id="chart4" width="800" height="400"></canvas>
+      <p>
+        Our model looks reasonable, but we could further improve on it by using
+        numerical optimization to assign parameter values for our exponential
+        smoothing. Both parameters are currently set to 0.5.
+      </p>
+      <p>
+        Tools used:
+        <a
+          href="http://www.surveyscience.co.uk/html/ssci/ssci_js.html"
+          target="_blank"
+          >SSCI</a
+        >
+        and <a href="https://www.chartjs.org/" target="_blank">Chart.js</a>. The
+        code is hosted on
+        <a href="https://github.com/fhqvst/time-series" target="_blank"
+          >GitHub</a
+        >.
+      </p>
+    </div>
+    <script type="text/javascript">
+      // Colors
+      const blue = "#137CBD";
+      const green = "#0F9960";
+
+      // Global Chart.js options
+      const chartOptions = {
+        type: "line"
+      };
+
+      // Configure parameters for exponential smoothing
+      const factor = 0.5;
+      const trend = 0.5;
+
+      const labels1 = [
+        "1990M01",
+        "1990M02",
+        "1990M03",
+        "1990M04",
+        "1990M05",
+        "1990M06",
+        "1990M07",
+        "1990M08",
+        "1990M09",
+        "1990M10",
+        "1990M11",
+        "1990M12",
+        "1991M01",
+        "1991M02",
+        "1991M03",
+        "1991M04",
+        "1991M05",
+        "1991M06",
+        "1991M07",
+        "1991M08",
+        "1991M09",
+        "1991M10",
+        "1991M11",
+        "1991M12",
+        "1992M01",
+        "1992M02",
+        "1992M03",
+        "1992M04",
+        "1992M05",
+        "1992M06",
+        "1992M07",
+        "1992M08",
+        "1992M09",
+        "1992M10",
+        "1992M11",
+        "1992M12",
+        "1993M01",
+        "1993M02",
+        "1993M03",
+        "1993M04",
+        "1993M05",
+        "1993M06",
+        "1993M07",
+        "1993M08",
+        "1993M09",
+        "1993M10",
+        "1993M11",
+        "1993M12",
+        "1994M01",
+        "1994M02",
+        "1994M03",
+        "1994M04",
+        "1994M05",
+        "1994M06",
+        "1994M07",
+        "1994M08",
+        "1994M09",
+        "1994M10",
+        "1994M11",
+        "1994M12",
+        "1995M01",
+        "1995M02",
+        "1995M03",
+        "1995M04",
+        "1995M05",
+        "1995M06",
+        "1995M07",
+        "1995M08",
+        "1995M09",
+        "1995M10",
+        "1995M11",
+        "1995M12",
+        "1996M01",
+        "1996M02",
+        "1996M03",
+        "1996M04",
+        "1996M05",
+        "1996M06",
+        "1996M07",
+        "1996M08",
+        "1996M09",
+        "1996M10",
+        "1996M11",
+        "1996M12",
+        "1997M01",
+        "1997M02",
+        "1997M03",
+        "1997M04",
+        "1997M05",
+        "1997M06",
+        "1997M07",
+        "1997M08",
+        "1997M09",
+        "1997M10",
+        "1997M11",
+        "1997M12",
+        "1998M01",
+        "1998M02",
+        "1998M03",
+        "1998M04",
+        "1998M05",
+        "1998M06",
+        "1998M07",
+        "1998M08",
+        "1998M09",
+        "1998M10",
+        "1998M11",
+        "1998M12",
+        "1999M01",
+        "1999M02",
+        "1999M03",
+        "1999M04",
+        "1999M05",
+        "1999M06",
+        "1999M07",
+        "1999M08",
+        "1999M09",
+        "1999M10",
+        "1999M11",
+        "1999M12",
+        "2000M01",
+        "2000M02",
+        "2000M03",
+        "2000M04",
+        "2000M05",
+        "2000M06",
+        "2000M07",
+        "2000M08",
+        "2000M09",
+        "2000M10",
+        "2000M11",
+        "2000M12",
+        "2001M01",
+        "2001M02",
+        "2001M03",
+        "2001M04",
+        "2001M05",
+        "2001M06",
+        "2001M07",
+        "2001M08",
+        "2001M09",
+        "2001M10",
+        "2001M11",
+        "2001M12",
+        "2002M01",
+        "2002M02",
+        "2002M03",
+        "2002M04",
+        "2002M05",
+        "2002M06",
+        "2002M07",
+        "2002M08",
+        "2002M09",
+        "2002M10",
+        "2002M11",
+        "2002M12",
+        "2003M01",
+        "2003M02",
+        "2003M03",
+        "2003M04",
+        "2003M05",
+        "2003M06",
+        "2003M07",
+        "2003M08",
+        "2003M09",
+        "2003M10",
+        "2003M11",
+        "2003M12",
+        "2004M01",
+        "2004M02",
+        "2004M03",
+        "2004M04",
+        "2004M05",
+        "2004M06",
+        "2004M07",
+        "2004M08",
+        "2004M09",
+        "2004M10",
+        "2004M11",
+        "2004M12",
+        "2005M01",
+        "2005M02",
+        "2005M03",
+        "2005M04",
+        "2005M05",
+        "2005M06",
+        "2005M07",
+        "2005M08",
+        "2005M09",
+        "2005M10",
+        "2005M11",
+        "2005M12",
+        "2006M01",
+        "2006M02",
+        "2006M03",
+        "2006M04",
+        "2006M05",
+        "2006M06",
+        "2006M07",
+        "2006M08",
+        "2006M09",
+        "2006M10",
+        "2006M11",
+        "2006M12",
+        "2007M01",
+        "2007M02",
+        "2007M03",
+        "2007M04",
+        "2007M05",
+        "2007M06",
+        "2007M07",
+        "2007M08",
+        "2007M09",
+        "2007M10",
+        "2007M11",
+        "2007M12",
+        "2008M01",
+        "2008M02",
+        "2008M03",
+        "2008M04",
+        "2008M05",
+        "2008M06",
+        "2008M07",
+        "2008M08",
+        "2008M09",
+        "2008M10",
+        "2008M11",
+        "2008M12",
+        "2009M01",
+        "2009M02",
+        "2009M03",
+        "2009M04",
+        "2009M05",
+        "2009M06",
+        "2009M07",
+        "2009M08",
+        "2009M09",
+        "2009M10",
+        "2009M11",
+        "2009M12",
+        "2010M01",
+        "2010M02",
+        "2010M03",
+        "2010M04",
+        "2010M05",
+        "2010M06",
+        "2010M07",
+        "2010M08",
+        "2010M09",
+        "2010M10",
+        "2010M11",
+        "2010M12",
+        "2011M01",
+        "2011M02",
+        "2011M03",
+        "2011M04",
+        "2011M05",
+        "2011M06",
+        "2011M07",
+        "2011M08",
+        "2011M09",
+        "2011M10",
+        "2011M11",
+        "2011M12",
+        "2012M01",
+        "2012M02",
+        "2012M03",
+        "2012M04",
+        "2012M05",
+        "2012M06",
+        "2012M07",
+        "2012M08",
+        "2012M09",
+        "2012M10",
+        "2012M11",
+        "2012M12",
+        "2013M01",
+        "2013M02",
+        "2013M03",
+        "2013M04",
+        "2013M05",
+        "2013M06",
+        "2013M07",
+        "2013M08",
+        "2013M09",
+        "2013M10",
+        "2013M11",
+        "2013M12",
+        "2014M01",
+        "2014M02",
+        "2014M03",
+        "2014M04",
+        "2014M05",
+        "2014M06",
+        "2014M07",
+        "2014M08",
+        "2014M09",
+        "2014M10",
+        "2014M11",
+        "2014M12",
+        "2015M01",
+        "2015M02",
+        "2015M03",
+        "2015M04",
+        "2015M05",
+        "2015M06",
+        "2015M07",
+        "2015M08",
+        "2015M09",
+        "2015M10",
+        "2015M11",
+        "2015M12",
+        "2016M01",
+        "2016M02",
+        "2016M03",
+        "2016M04",
+        "2016M05",
+        "2016M06",
+        "2016M07",
+        "2016M08",
+        "2016M09",
+        "2016M10",
+        "2016M11",
+        "2016M12",
+        "2017M01",
+        "2017M02",
+        "2017M03",
+        "2017M04",
+        "2017M05",
+        "2017M06",
+        "2017M07",
+        "2017M08",
+        "2017M09",
+        "2017M10",
+        "2017M11",
+        "2017M12",
+        "2018M01",
+        "2018M02",
+        "2018M03",
+        "2018M04",
+        "2018M05",
+        "2018M06",
+        "2018M07",
+        "2018M08",
+        "2018M09"
+      ];
+      const data1 = [
+        15249,
+        13211,
+        14548,
+        12803,
+        11845,
+        10312,
+        9590,
+        10986,
+        12219,
+        14095,
+        14819,
+        14945,
+        15755,
+        14799,
+        14534,
+        12385,
+        11057,
+        10090,
+        9648,
+        9640,
+        10235,
+        12545,
+        13634,
+        14486,
+        14834,
+        14224,
+        14828,
+        13561,
+        11402,
+        9935,
+        9123,
+        10956,
+        11272,
+        13333,
+        13311,
+        13653,
+        14288,
+        13099,
+        14003,
+        12177,
+        11081,
+        10879,
+        9790,
+        11457,
+        11549,
+        12472,
+        13753,
+        14495,
+        14273,
+        14525,
+        14199,
+        12061,
+        11623,
+        9822,
+        8733,
+        9545,
+        10360,
+        12205,
+        12893,
+        13622,
+        14627,
+        12957,
+        13856,
+        12366,
+        12270,
+        10803,
+        9815,
+        10431,
+        10954,
+        12118,
+        14555,
+        16197,
+        15845,
+        15275,
+        14257,
+        11879,
+        11027,
+        10068,
+        9808,
+        10077,
+        11515,
+        12665,
+        13577,
+        15900,
+        16121,
+        14260,
+        14634,
+        13462,
+        12381,
+        10767,
+        9959,
+        10290,
+        9972,
+        13405,
+        13897,
+        14753,
+        15027,
+        13621,
+        14909,
+        13434,
+        12698,
+        11127,
+        10914,
+        11695,
+        12046,
+        13771,
+        15392,
+        15702,
+        16023,
+        14520,
+        15485,
+        13232,
+        12841,
+        11040,
+        10477,
+        10953,
+        10997,
+        13400,
+        14041,
+        15873,
+        15503,
+        14818,
+        15138,
+        12597,
+        11984,
+        10923,
+        11151,
+        12273,
+        12551,
+        13413,
+        14321,
+        15531,
+        16669,
+        15550,
+        16232,
+        13816,
+        12821,
+        10949,
+        10933,
+        12056,
+        13696,
+        14334,
+        15288,
+        16565,
+        16822,
+        14629,
+        15602,
+        13711,
+        12777,
+        11107,
+        11804,
+        11528,
+        11407,
+        13933,
+        14752,
+        16030,
+        16589,
+        14787,
+        14993,
+        13626,
+        12086,
+        10246,
+        10072,
+        10484,
+        10795,
+        13545,
+        14139,
+        15467,
+        16676,
+        14986,
+        15265,
+        13363,
+        12398,
+        10654,
+        11818,
+        11174,
+        11939,
+        14318,
+        15257,
+        16282,
+        16609,
+        15479,
+        15496,
+        13229,
+        12791,
+        11781,
+        11688,
+        12310,
+        12706,
+        13974,
+        14997,
+        16538,
+        17065,
+        15226,
+        16167,
+        13461,
+        12850,
+        10646,
+        10104,
+        10114,
+        10414,
+        12887,
+        14172,
+        15008,
+        16231,
+        14807,
+        15014,
+        13692,
+        13291,
+        11395,
+        11218,
+        11635,
+        11448,
+        13059,
+        14215,
+        15134,
+        16515,
+        15299,
+        15954,
+        13969,
+        12902,
+        10998,
+        10843,
+        10552,
+        11604,
+        12518,
+        13453,
+        14167,
+        15692,
+        14416,
+        13846,
+        11417,
+        11231,
+        10330,
+        9671,
+        10369,
+        10465,
+        12527,
+        12601,
+        14866,
+        16495,
+        14476,
+        14558,
+        12492,
+        13184,
+        12004,
+        11095,
+        11178,
+        10717,
+        12515,
+        14535,
+        16758,
+        16398,
+        15159,
+        14989,
+        12397,
+        11452,
+        11036,
+        11496,
+        11973,
+        12390,
+        13056,
+        13417,
+        15613,
+        16782,
+        15927,
+        15480,
+        14659,
+        13530,
+        12364,
+        12320,
+        12929,
+        12838,
+        14777,
+        15015,
+        17107,
+        17282,
+        15372,
+        16353,
+        13678,
+        11960,
+        10845,
+        11421,
+        11461,
+        11438,
+        12831,
+        14230,
+        15551,
+        17427,
+        15342,
+        16087,
+        13832,
+        12123,
+        11359,
+        11713,
+        11557,
+        11552,
+        13419,
+        14512,
+        16120,
+        16400,
+        14925,
+        15397,
+        13612,
+        13046,
+        12337,
+        12339,
+        12854,
+        12196,
+        14609,
+        14615,
+        15485,
+        18076,
+        16196,
+        16013,
+        13900,
+        12832,
+        10973,
+        11025,
+        11526,
+        11931,
+        13163,
+        14337,
+        15831,
+        17248,
+        15383,
+        15853,
+        14363,
+        13325,
+        11992,
+        12292,
+        12295,
+        12004,
+        13989,
+        15607,
+        16887,
+        17505,
+        16483,
+        17029,
+        13625,
+        13251,
+        12057,
+        11114,
+        11478,
+        11738
+      ];
+
+      // Chart 1
+
+      // Render chart
+      new Chart(
+        document.getElementById("chart1"),
+        Object.assign({}, chartOptions, {
+          data: {
+            labels: labels1,
+            datasets: [
+              {
+                label: "Electricity usage (GWh)",
+                data: data1,
+                borderColor: green,
+                fill: false,
+                pointRadius: 0
+              }
+            ]
+          }
+        })
+      );
+
+      // Chart 2
+
+      // Compute periodical average
+      let data2 = ssci.season
+        .average()
+        .data(data1.map((y, x) => [x, y]))
+        .labels(data1.map((y, x) => x % 12));
+
+      data2();
+      data2 = data2.output();
+      data2 = data2.map(([x, y]) => y);
+
+      // Render chart
+      new Chart(
+        document.getElementById("chart2"),
+        Object.assign({}, chartOptions, {
+          data: {
+            labels: labels1,
+            datasets: [
+              {
+                label: "Electricity usage (GWh), periodical average removed",
+                data: data2,
+                borderColor: green,
+                fill: false,
+                pointRadius: 0
+              }
+            ]
+          }
+        })
+      );
+
+      // Chart 3
+
+      // Compute exponential moving average
+      let data3 = ssci.season
+        .movingAverage()
+        .data(data2.map((y, x) => [x, y]))
+        .frequency(12);
+
+      data3();
+      data3 = data3.output();
+      data3 = data2
+        .map((y, x) => (data3[x] ? y - data3[x][1] : undefined))
+        .filter(x => x !== undefined);
+
+      // Render chart
+      new Chart(
+        document.getElementById("chart3"),
+        Object.assign({}, chartOptions, {
+          data: {
+            labels: labels1,
+            datasets: [
+              {
+                label:
+                  "Deseasonalised electricity usage (GWh), periodical average and drift removed",
+                data: data3,
+                borderColor: green,
+                fill: false,
+                pointRadius: 0
+              }
+            ]
+          }
+        })
+      );
+
+      // Chart 4
+
+      // Compute residuals from removing periodic averages and drift
+      const residuals = data1.map((y, x) => y - data3[x]);
+      const data41 = [];
+      const adjust = 4;
+      data3.forEach((y, x) => {
+        if (data3.length - x - adjust > 0) {
+          const y_ = ssci.fore
+            .holt()
+            .data(data3.slice(0, x + adjust).map((y, x) => [x, y]))
+            .factor(factor)
+            .trend(factor);
+
+          y_();
+          data41.push(y_.forecast(1) + residuals[x + adjust]);
+        }
+      });
+
+      const data42 = data1.slice(adjust, data41.length + adjust);
+
+      // Render chart
+      new Chart(
+        document.getElementById("chart4"),
+        Object.assign({}, chartOptions, {
+          data: {
+            labels: labels1.slice(0, data41.length),
+            datasets: [
+              {
+                label: "Electricity usage (GWh)",
+                data: data42,
+                borderColor: "rgba(15, 153, 96, 0.25)",
+                fill: false,
+                pointRadius: 0,
+                opacity: 0.5
+              },
+              {
+                label: "Forecasted electricity usage (GWh)",
+                data: data41,
+                borderColor: blue,
+                fill: false,
+                pointRadius: 0
+              }
+            ]
+          }
+        })
+      );
+    </script>
+  </body>
+</html>
